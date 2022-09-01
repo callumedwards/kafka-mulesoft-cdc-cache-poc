@@ -1,0 +1,71 @@
+version: '2'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.1
+    hostname: zookeeper
+    #container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  kafka:
+    image: confluentinc/cp-kafka:7.2.1
+    hostname: kafka
+    #container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:19092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - ./kafka/data:/var/lib/kafka/data
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.2.1
+    hostname: kafka-connect
+    #container_name: kafka-connect
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_PLUGIN_PATH: '/usr/share/java,/etc/kafka-connect/jars'
+      CONNECT_CONFLUENT_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./kafka-connect/jars:/etc/kafka-connect/jars
+    depends_on:
+      - zookeeper
+      - kafka
+      - mysql_kafka
+      
+  mysql_kafka:
+    image: debezium/example-mysql:0.10
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=debezium
+      - MYSQL_USER=mysqluser
+      - MYSQL_PASSWORD=mysqlpw
+    volumes:
+      - mysql-volume:/var/lib/mysql
+      
+volumes:
+  mysql-volume:

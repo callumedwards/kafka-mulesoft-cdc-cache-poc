@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="ff86e3f4-cb47-4952-8584-fcf470f6bcad" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="debezium" database="inventory" />
+	</db:config>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="843188be-f399-46e1-b94c-e9fd90bcac2f" keyGenerationExpression="#[vars.id]" />
+	<sub-flow name="customer-select" doc:id="535283db-8c6e-47ce-a59b-d3f5d1494997" >
+		<ee:cache doc:name="Cache" doc:id="2fb6cbc7-c40b-4083-b49c-4c027b234abb" cachingStrategy-ref="Caching_Strategy">
+			<logger level="INFO" doc:name="Log DB Request" doc:id="3d8ae926-4947-454b-9d94-0b9bf9d238a4" message='#["About to retrieve from db: " ++ vars.id]' />
+			<db:select doc:name="Select from read-only DB" doc:id="a4dee8fd-35b2-4e2b-ac50-38bcacbf21a1" config-ref="Database_Config">
+			<db:sql><![CDATA[select * from customers_ro where id = :id]]></db:sql>
+			<db:input-parameters><![CDATA[#[{'id': vars.id}]]]></db:input-parameters>
+		</db:select>
+			<ee:transform doc:name="Create Response Payload" doc:id="6a185cae-2b16-49a3-8dd7-4e26cfd97027">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	firstName: payload[0].first_name,
+	lastName: payload[0].last_name,
+	id: payload[0].id,
+	email: payload[0].email,
+	updatedDate: now()
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		</ee:cache>
+		<logger level="INFO" doc:name="Log Payload" doc:id="a6e33d4f-ac82-48eb-a92d-74a54bb2554d" message="#[payload]"/>
+	</sub-flow>
+	<sub-flow name="customer-insert" doc:id="785a182b-56f7-4ef7-b8ec-17dd1cb96d0e" >
+		<db:insert doc:name="Insert new record in DB" doc:id="4ddf6e2b-cb63-44ef-a90f-b235a3038850" config-ref="Database_Config" autoGenerateKeys="true">
+			<db:sql ><![CDATA[insert into customers (first_name,last_name,email)
+values (:firstName, :lastName, :email);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{firstName: payload.firstName,
+lastName: payload.lastName,
+email: payload.email}]]]></db:input-parameters>
+			<db:auto-generated-keys-column-names >
+				<db:auto-generated-keys-column-name value="id" />
+			</db:auto-generated-keys-column-names>
+		</db:insert>
+		<set-variable value="#[payload.generatedKeys[0]]" doc:name="Extract Generated Id" doc:id="6d1a016c-a7c8-422e-8719-73d2d4e4a28b" variableName="id"/>
+		<db:select doc:name="Select new record from DB" doc:id="2e162d27-faf8-493a-9a3d-34defb300168" config-ref="Database_Config" >
+			<db:sql ><![CDATA[select * from customers where id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{'id': vars.id}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Create Response Payload" doc:id="c88f6e15-f7f8-4087-b4e5-c8de48f8f476" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	firstName: payload[0].first_name,
+	lastName: payload[0].last_name,
+	id: payload[0].id,
+	email: payload[0].email
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="customer-update" doc:id="a73e5f7f-72f3-4735-8dd7-b81cb47b3881" >
+		<db:update doc:name="Update record in DB" doc:id="45b9f4a9-7049-4f85-9c35-460ccf792c19" config-ref="Database_Config">
+			<db:sql ><![CDATA[update customers
+set first_name = :firstName,
+last_name = :lastName,
+email = :email
+where id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{firstName: payload.firstName,
+lastName: payload.lastName,
+email: payload.email,
+id:vars.id}]]]></db:input-parameters>
+		</db:update>
+		<db:select doc:name="Select updated record from DB" doc:id="87b993bf-36a0-462c-a07b-37bc30a6ed62" config-ref="Database_Config" >
+			<db:sql ><![CDATA[select * from customers where id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{'id': vars.id}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Create Response Payload" doc:id="808b8d78-1147-4107-84de-53bd1ac7cae9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	firstName: payload[0].first_name,
+	lastName: payload[0].last_name,
+	id: payload[0].id,
+	email: payload[0].email
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>

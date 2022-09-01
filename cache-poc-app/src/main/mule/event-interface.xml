@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="edd33a46-8261-4553-9f90-3ab084151dbd" >
+		<kafka:consumer-plaintext-connection groupId="mulesoft-cache" >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="localhost:19092" />
+			</kafka:bootstrap-servers>
+			<kafka:topic-patterns >
+				<kafka:topic-pattern value="dbserver1.inventory.customers" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+	<flow name="event-interfaceFlow1" doc:id="477384c0-1174-4102-997d-177c1c996626" >
+		<kafka:message-listener doc:name="Message listener" doc:id="00a63be2-0e73-45a9-9ee6-474c425a8720" config-ref="Apache_Kafka_Consumer_configuration"/>
+		<logger level="INFO" doc:name="Log Payload" doc:id="648a39a7-4e99-4aae-bb9d-979527ab6773" message="#[payload]"/>
+		<ee:invalidate-key doc:name="Invalidate Key in Cache" doc:id="e5e5c5d8-eec6-4f3d-b1e1-ead6d60ba66f" cachingStrategy-ref="Caching_Strategy" keyGenerationExpression='#[read(payload,"application/json").payload.after.id]'/>
+	</flow>
+</mule>
