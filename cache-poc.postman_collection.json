@@ -1,0 +1,336 @@
+{
+	"info": {
+		"_postman_id": "16ffd67a-7846-4616-abc3-cb2d23a46084",
+		"name": "cache-poc",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Customer",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"var jsonResponseData = pm.response.json();\r",
+							"pm.collectionVariables.set(\"original_id\", jsonResponseData.id);\r",
+							"pm.collectionVariables.set(\"original_firstName\", jsonResponseData.firstName);\r",
+							"pm.collectionVariables.set(\"original_lastName\", jsonResponseData.lastName);\r",
+							"pm.collectionVariables.set(\"original_email\", jsonResponseData.email);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"firstName\":\"{{$randomFirstName}}\",\r\n\t\"lastName\":\"{{$randomLastName}}\",\r\n\t\"email\":\"{{$randomEmail}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/api/customers",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Prime Cache",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"//lets retry a few times to allow the data to sync accross to the read only data store\r",
+							"var expectedHttpStatus = 200;\r",
+							"var maxNumberOfTries = 6;\r",
+							"var sleepBetweenTries = 5000;\r",
+							"\r",
+							"if (!pm.collectionVariables.get(\"collection_tries\")) {\r",
+							"    pm.collectionVariables.set(\"collection_tries\", 1);\r",
+							"}\r",
+							"\r",
+							"if ((pm.response.code != expectedHttpStatus) && (pm.collectionVariables.get(\"collection_tries\") < maxNumberOfTries)) {\r",
+							"     var tries = parseInt(pm.collectionVariables.get(\"collection_tries\"), 10);\r",
+							"     pm.collectionVariables.set(\"collection_tries\", tries + 1);\r",
+							"     setTimeout(function() {}, sleepBetweenTries);\r",
+							"     postman.setNextRequest(request.name);\r",
+							" } else {\r",
+							"     pm.collectionVariables.unset(\"collection_tries\");\r",
+							"\r",
+							"     pm.test(\"Status code is \" + expectedHttpStatus, function () {\r",
+							"          pm.response.to.have.status(expectedHttpStatus);\r",
+							"     });\r",
+							"     \r",
+							"    var jsonResponseData = pm.response.json();\r",
+							"    pm.collectionVariables.set(\"cached_timestamp\", jsonResponseData.updatedDate);\r",
+							" }"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8081/api/customers/{{original_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers",
+						"{{original_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Validate Cache",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"pm.test(\"Validate cached record returned\", function () {\r",
+							"    var jsonResponseData = pm.response.json();\r",
+							"    pm.expect(jsonResponseData.updatedDate).to.eql(pm.collectionVariables.get(\"cached_timestamp\"));\r",
+							"pm.collectionVariables.set(\"cached_timestamp\", jsonResponseData.updatedDate);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8081/api/customers/{{original_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers",
+						"{{original_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update Customer",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"var jsonResponseData = pm.response.json();\r",
+							"pm.collectionVariables.set(\"expected_id\", jsonResponseData.id);\r",
+							"pm.collectionVariables.set(\"expected_firstName\", jsonResponseData.firstName);\r",
+							"pm.collectionVariables.set(\"expected_lastName\", jsonResponseData.lastName);\r",
+							"pm.collectionVariables.set(\"expected_email\", jsonResponseData.email);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"firstName\":\"{{original_firstName}}\",\r\n\t\"lastName\":\"{{original_lastName}}\",\r\n\t\"email\":\"{{$randomEmail}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/api/customers/{{original_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers",
+						"{{original_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Validate Cache Flush",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"\r",
+							"var jsonResponseData = pm.response.json();\r",
+							"//lets retry a few times to allow the data to sync accross to the read only data store\r",
+							"var expectedHttpStatus = 200;\r",
+							"var maxNumberOfTries = 6;\r",
+							"var sleepBetweenTries = 5000;\r",
+							"\r",
+							"if (!pm.collectionVariables.get(\"collection_tries\")) {\r",
+							"    pm.collectionVariables.set(\"collection_tries\", 1);\r",
+							"}\r",
+							"\r",
+							"if ((jsonResponseData.updatedDate == pm.collectionVariables.get(\"cached_timestamp\")) && (pm.collectionVariables.get(\"collection_tries\") < maxNumberOfTries)) {\r",
+							"     var tries = parseInt(pm.collectionVariables.get(\"collection_tries\"), 10);\r",
+							"     pm.collectionVariables.set(\"collection_tries\", tries + 1);\r",
+							"     setTimeout(function() {}, sleepBetweenTries);\r",
+							"     postman.setNextRequest(request.name);\r",
+							" } else {\r",
+							"     pm.collectionVariables.unset(\"collection_tries\");\r",
+							"\r",
+							"     pm.test(\"Status code is \" + expectedHttpStatus, function () {\r",
+							"          pm.response.to.have.status(expectedHttpStatus);\r",
+							"     });\r",
+							"     \r",
+							"    pm.test(\"Validate cached record is updated\", function () {\r",
+							"        var jsonResponseData = pm.response.json();\r",
+							"        pm.expect(jsonResponseData.updatedDate).to.not.eql(pm.collectionVariables.get(\"cached_timestamp\"));\r",
+							"        pm.expect(jsonResponseData.email).to.eql(pm.collectionVariables.get(\"expected_email\"));\r",
+							"    });    \r",
+							"    pm.collectionVariables.set(\"cached_timestamp\", jsonResponseData.updatedDate);\r",
+							" }"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8081/api/customers/{{original_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers",
+						"{{original_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Validate Cache Update",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"pm.test(\"Validate cached record returned\", function () {\r",
+							"    var jsonResponseData = pm.response.json();\r",
+							"    pm.expect(jsonResponseData.updatedDate).to.eql(pm.collectionVariables.get(\"cached_timestamp\"));\r",
+							"pm.collectionVariables.set(\"cached_timestamp\", jsonResponseData.updatedDate);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8081/api/customers/{{original_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"api",
+						"customers",
+						"{{original_id}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "original_id",
+			"value": ""
+		},
+		{
+			"key": "original_firstName",
+			"value": ""
+		},
+		{
+			"key": "original_lastName",
+			"value": ""
+		},
+		{
+			"key": "original_email",
+			"value": ""
+		},
+		{
+			"key": "cached_timestamp",
+			"value": ""
+		},
+		{
+			"key": "expected_id",
+			"value": ""
+		},
+		{
+			"key": "expected_firstName",
+			"value": ""
+		},
+		{
+			"key": "expected_lastName",
+			"value": ""
+		},
+		{
+			"key": "expected_email",
+			"value": ""
+		}
+	]
+}

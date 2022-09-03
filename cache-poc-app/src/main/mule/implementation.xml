@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
 	<db:config name="Database_Config" doc:name="Database Config" doc:id="ff86e3f4-cb47-4952-8584-fcf470f6bcad" >
 		<db:my-sql-connection host="localhost" port="3306" user="root" password="debezium" database="inventory" />
 	</db:config>
@@ -16,6 +17,25 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 			<db:sql><![CDATA[select * from customers_ro where id = :id]]></db:sql>
 			<db:input-parameters><![CDATA[#[{'id': vars.id}]]]></db:input-parameters>
 		</db:select>
+			<try doc:name="Try" doc:id="b12b87d7-500a-4382-be7d-d028eac6f956" >
+				<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="d63694d8-df2f-4be4-ba0a-e2067b2e5bc1" message="Not Found">
+			</validation:is-not-empty-collection>
+				<error-handler >
+					<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="4828f20b-3526-4baf-a777-8b4d8d1990fd" >
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+					</on-error-propagate>
+				</error-handler>
+			</try>
 			<ee:transform doc:name="Create Response Payload" doc:id="6a185cae-2b16-49a3-8dd7-4e26cfd97027">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
