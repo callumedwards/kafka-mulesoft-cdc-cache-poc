@@ -1,0 +1,23 @@
+%dw 2.0
+
+type auto_535283db_8c6e_47ce_a59b_d3f5d1494997_Input_Attributes = {|
+  clientCertificate?: {|
+    publicKey?: {|  |}, 
+    "type"?: String, 
+    encoded?: Binary
+  |}, 
+  headers: {|  |}, 
+  listenerPath: String, 
+  method: String, 
+  queryParams: {|  |}, 
+  queryString: String, 
+  relativePath: String, 
+  remoteAddress: String, 
+  requestPath: String, 
+  requestUri: String, 
+  scheme: String, 
+  uriParams: {| id: String |}, 
+  version: String, 
+  localAddress: String
+|}
+

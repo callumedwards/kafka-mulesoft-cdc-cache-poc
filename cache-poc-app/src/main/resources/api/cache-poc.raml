@@ -1,0 +1,51 @@
+#%RAML 1.0
+title: Cache-POC
+version: v1
+baseUri: /cache-poc/{version}
+
+types:
+  customer-type:
+      type: person-type
+      properties:
+        id: integer
+        updatedDate: datetime
+  person-type:
+      type: object
+      properties:
+        firstName: string
+        lastName: string
+        email: string
+        
+/customers:
+  /{id}:
+    get:
+      responses:
+        200:
+          body:
+            application/json:
+              type: customer-type
+                
+    put:  
+      body:
+        application/json:
+          type: person-type
+      responses:
+        200:
+          body:
+            application/json:
+              type: customer-type
+  post:
+    body:
+      application/json:
+        type: person-type
+    responses:
+      200:
+        body:
+          application/json:
+            type: person-type
+      
+
+        
+   
+      
+  
